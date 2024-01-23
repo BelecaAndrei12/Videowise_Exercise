@@ -1,0 +1,25 @@
+.masonry-grid {
+  display: flex;
+  overflow-x: auto;
+  gap: 1em /* Adjust the gap between items */
+}
+
+.column {
+  flex: 0 0 calc(25% - 1em);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+}
+
+.image {
+  width: 100%;
+  position: relative;
+  margin-bottom: 1em; /* Adjust the gap between items vertically */
+
+  img {
+    width: 100%;
+    height: auto;
+    border-radius: 8px;
+    display: block;
+  }
+}

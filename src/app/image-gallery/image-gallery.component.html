@@ -1,0 +1,8 @@
+<div *ngIf="images$ | async as images" class="masonry-grid">
+  <div *ngFor="let row of images | chunk: 4" class="column">
+    <div *ngFor="let image of row" class="image">
+      <img [src]="image.imageUrl" alt="{{ image.alt_description }}">
+      <p>{{image.description}}</p>
+    </div>
+  </div>
+</div>
