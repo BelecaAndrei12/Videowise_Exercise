@@ -1,58 +1,102 @@
-import { Component, HostListener, OnInit } from '@angular/core';
+import { Component, Inject } from '@angular/core';
 import { ImagesService } from '../shared/images-service.service';
-import { Observable, debounceTime, map, tap } from 'rxjs';
+import { BehaviorSubject, Observable, scan, map, switchMap, timer, filter } from 'rxjs';
 import { Image } from '../models/image-interface';
+import { DOCUMENT } from '@angular/common';
 
 @Component({
   selector: 'app-image-gallery',
   templateUrl: './image-gallery.component.html',
-  styleUrl: './image-gallery.component.scss'
+  styleUrls: ['./image-gallery.component.scss'],
 })
-export class ImageGalleryComponent implements OnInit{
-
-  images$:Observable<Image[]> = new Observable<Image[]>();
-  prevBatch$: Observable<Image[]> = new Observable<Image[]>();
-
-  currentPage: number = 1;
+export class ImageGalleryComponent {
+  private currentPageSubject = new BehaviorSubject<number>(1);
+  currentPage$ = this.currentPageSubject.asObservable();
   perPage: number = 20;
 
-  loadNewBatch = false;
+  private buffer: Image[][] = [];
+  bufferLimit = 2;
 
-  constructor(private imagesService:ImagesService) {}
+  loading: boolean = false;
 
-  ngOnInit(): void {
-      this.images$ = this.imagesService.getPhotos(this.currentPage, this.perPage);
-      this.images$.subscribe(res => console.log(res))
+  private scrollDirection: 'up' | 'down'  = 'down';
+
+  private  firstBatchHalf: Image | null = null;
+  private  secondBatchHalf: Image | null = null;
+
+  images$: Observable<Image[]> = this.currentPage$.pipe(
+    filter(() => !this.loading),
+    switchMap((page) => this.loadImages(page)),
+    scan(( _ , images: Image[]) => {
+      return this.handleScrollEvents(images);
+    }, [] as Image[]),
+    switchMap(() => timer(500)),
+    map(() => {
+      this.loading = false;
+      return this.buffer.reduce((prev, curr) => [...prev, ...curr], []);
+    })
+  );
+
+  constructor(
+    private imagesService: ImagesService,
+    @Inject(DOCUMENT) private document: Document
+    ) {}
+
+  private loadImages(page: number) {
+    this.loading = true;
+    return this.imagesService.getPhotos(page, this.perPage);
   }
 
-  @HostListener('window:scroll', ['$event'])
-  onScroll(event: Event): void {
-    if (!this.loadNewBatch) {
-      const scrollPosition = window.scrollY || window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop;
-      const totalHeight = document.documentElement.scrollHeight;
-      const windowHeight = window.innerHeight;
-      const threshold = 100;
+  private handleScrollEvents(images: Image[]) {
+    if (this.scrollDirection === 'down') {
+      this.buffer.push(images);
+    } else if (this.scrollDirection === 'up') {
+      this.buffer.unshift(images);
+      this.buffer.pop();
+    }
 
-      const isAtBottom = scrollPosition + windowHeight + threshold >= totalHeight;
+    this.buffer = this.buffer.slice(-this.bufferLimit);
+    const finalList = this.buffer.reduce((prev, curr) => [...prev, ...curr], []);
 
-      if (isAtBottom) {
-        this.loadNextBatch();
+    this.setScrollReferences();
+
+    console.log('List size:', finalList.length);
+
+    return finalList;
+  }
+
+  private setScrollReferences() {
+    if (this.scrollDirection === 'down') {
+      if (this.buffer.length >= 2 && this.buffer[0]) {
+        this.firstBatchHalf = this.buffer[0][8];
+      }
+    }
+
+    if (this.scrollDirection === 'up') {
+      if (this.buffer.length >= 2 && this.buffer[1]) {
+        this.secondBatchHalf = this.buffer[1][0];
       }
     }
   }
 
-  loadNextBatch() {
-    this.loadNewBatch= true;
-    this.currentPage++;
+  private scrollToReference(image: Image): void {
+    if(image) {
+      const imageElement = this.document.getElementById(`image-${image!.id}`)
+      imageElement?.scrollIntoView({block:'start'})
+    }
+  }
 
+  onScrollDown(): void {
+    this.scrollDirection = 'down';
+    this.currentPageSubject.next(this.currentPageSubject.value + 1);
+    this.scrollToReference(this.firstBatchHalf!)
+  }
 
-    this.prevBatch$ = this.images$.pipe(
-      map(images => [...images])
-    );
-    this.images$ = this.imagesService.getPhotos(this.currentPage, this.perPage)
-    .pipe(
-      tap(() => this.loadNewBatch = false),
-      debounceTime(1000)
-    )
+  onScrollUp(): void {
+    this.scrollDirection = 'up';
+    if (this.currentPageSubject.value >= 2) {
+      this.currentPageSubject.next(this.currentPageSubject.value - 1);
+    }
+    this.scrollToReference(this.secondBatchHalf!)
   }
 }

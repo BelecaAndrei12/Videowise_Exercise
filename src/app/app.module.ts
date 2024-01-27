@@ -3,9 +3,13 @@ import { BrowserModule, provideClientHydration } from '@angular/platform-browser
 
 import { AppRoutingModule } from './app-routing.module';
 import { AppComponent } from './app.component';
-import { ImageGalleryComponent } from './image-gallery/image-gallery.component';
 import { ChunkPipe } from './shared/chunk.pipe';
 import { HttpClientModule } from '@angular/common/http';
+import { InfiniteScrollModule } from 'ngx-infinite-scroll';
+import { ImageGalleryComponent } from './image-gallery/image-gallery.component';
+import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+
 
 @NgModule({
   declarations: [
@@ -17,6 +21,9 @@ import { HttpClientModule } from '@angular/common/http';
     BrowserModule,
     AppRoutingModule,
     HttpClientModule,
+    InfiniteScrollModule,
+    BrowserAnimationsModule,
+    MatProgressSpinnerModule,
   ],
   providers: [
     provideClientHydration()

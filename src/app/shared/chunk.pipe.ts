@@ -1,4 +1,3 @@
-// chunk.pipe.ts
 import { Pipe, PipeTransform } from '@angular/core';
 
 @Pipe({
@@ -6,7 +5,6 @@ import { Pipe, PipeTransform } from '@angular/core';
 })
 export class ChunkPipe implements PipeTransform {
   transform(array: any[], size: number): any[][] {
-    //const columns = Math.ceil(array.length / size);
     const result = [];
 
     for (let i = 0; i < size; i++) {

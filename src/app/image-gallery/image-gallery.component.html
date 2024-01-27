@@ -1,8 +1,29 @@
-<div *ngIf="images$ | async as images" class="masonry-grid">
-  <div *ngFor="let row of images | chunk: 4" class="column">
-    <div *ngFor="let image of row" class="image">
-      <img [src]="image.imageUrl" alt="{{ image.alt_description }}">
-      <p>{{image.description}}</p>
+<div
+  infinite-scroll
+  [infiniteScrollDistance]="1.5"
+  [infiniteScrollUpDistance]="3"
+  [infiniteScrollThrottle]="300"
+  (scrolled)="onScrollDown()"
+  (scrolledUp)="onScrollUp()"
+>
+  <ng-container *ngIf="(images$ | async) as images">
+    <div class="masonry-grid">
+      <div *ngFor="let row of images | chunk: 4" class="column">
+        <div *ngFor="let image of row"  id="{{'image-' + image.id }}" class="images">
+          <div class="image">
+            <img [src]="image.imageUrl" alt="{{ image.alt_description }}" />
+            <p>{{ image.description }}</p>
+            <p><strong>{{image.index}}</strong></p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </ng-container>
+  <div *ngIf="loading" class="loading-overlay">
+    <div class="loading-spinner">
+      <mat-progress-spinner mode="indeterminate"></mat-progress-spinner>
     </div>
   </div>
-</div>
+
+
+
