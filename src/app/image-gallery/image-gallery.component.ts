@@ -1,15 +1,31 @@
-import { Component, Inject } from '@angular/core';
+import {
+  Component,
+  HostListener,
+  Inject,
+  OnInit,
+  PLATFORM_ID,
+} from '@angular/core';
 import { ImagesService } from '../shared/images-service.service';
-import { BehaviorSubject, Observable, scan, map, switchMap, timer, filter } from 'rxjs';
+import {
+  BehaviorSubject,
+  Observable,
+  scan,
+  map,
+  switchMap,
+  timer,
+  filter,
+  catchError,
+  of,
+} from 'rxjs';
 import { Image } from '../models/image-interface';
-import { DOCUMENT } from '@angular/common';
+import { DOCUMENT, isPlatformBrowser } from '@angular/common';
 
 @Component({
   selector: 'app-image-gallery',
   templateUrl: './image-gallery.component.html',
   styleUrls: ['./image-gallery.component.scss'],
 })
-export class ImageGalleryComponent {
+export class ImageGalleryComponent implements OnInit {
   private currentPageSubject = new BehaviorSubject<number>(1);
   currentPage$ = this.currentPageSubject.asObservable();
   perPage: number = 20;
@@ -19,31 +35,52 @@ export class ImageGalleryComponent {
 
   loading: boolean = false;
 
-  private scrollDirection: 'up' | 'down'  = 'down';
+  private scrollDirection: 'up' | 'down' = 'down';
 
-  private  firstBatchHalf: Image | null = null;
-  private  secondBatchHalf: Image | null = null;
+  private firstBatchHalf: Image | null = null;
+  private secondBatchHalf: Image | null = null;
+
+  screenSize!: number;
+
+  @HostListener('window:resize', ['$event'])
+  onResize(event: any) {
+    this.screenSize = window.innerWidth;
+  }
 
   images$: Observable<Image[]> = this.currentPage$.pipe(
     filter(() => !this.loading),
     switchMap((page) => this.loadImages(page)),
-    scan(( _ , images: Image[]) => {
+    catchError((error) => {
+      console.error('Error loading the images', error);
+      this.loading = false;
+      return of([]);
+    }),
+    scan((_, images: Image[]) => {
       return this.handleScrollEvents(images);
     }, [] as Image[]),
     switchMap(() => timer(500)),
     map(() => {
       this.loading = false;
+      this.toggleScroll('');
       return this.buffer.reduce((prev, curr) => [...prev, ...curr], []);
     })
   );
 
   constructor(
     private imagesService: ImagesService,
-    @Inject(DOCUMENT) private document: Document
-    ) {}
+    @Inject(DOCUMENT) private document: Document,
+    @Inject(PLATFORM_ID) private platformId: any
+  ) {}
+
+  ngOnInit(): void {
+    if (isPlatformBrowser(this.platformId)) {
+      this.screenSize = window.innerWidth;
+    }
+  }
 
   private loadImages(page: number) {
     this.loading = true;
+    this.toggleScroll('hidden');
     return this.imagesService.getPhotos(page, this.perPage);
   }
 
@@ -56,7 +93,10 @@ export class ImageGalleryComponent {
     }
 
     this.buffer = this.buffer.slice(-this.bufferLimit);
-    const finalList = this.buffer.reduce((prev, curr) => [...prev, ...curr], []);
+    const finalList = this.buffer.reduce(
+      (prev, curr) => [...prev, ...curr],
+      []
+    );
 
     this.setScrollReferences();
 
@@ -80,16 +120,20 @@ export class ImageGalleryComponent {
   }
 
   private scrollToReference(image: Image): void {
-    if(image) {
-      const imageElement = this.document.getElementById(`image-${image!.id}`)
-      imageElement?.scrollIntoView({block:'start'})
+    if (image) {
+      const imageElement = this.document.getElementById(`image-${image!.id}`);
+      imageElement?.scrollIntoView({ block: 'start' });
     }
+  }
+
+  private toggleScroll(option: 'hidden' | ''): void {
+    this.document.body.style.overflow = option;
   }
 
   onScrollDown(): void {
     this.scrollDirection = 'down';
     this.currentPageSubject.next(this.currentPageSubject.value + 1);
-    this.scrollToReference(this.firstBatchHalf!)
+    this.scrollToReference(this.firstBatchHalf!);
   }
 
   onScrollUp(): void {
@@ -97,6 +141,6 @@ export class ImageGalleryComponent {
     if (this.currentPageSubject.value >= 2) {
       this.currentPageSubject.next(this.currentPageSubject.value - 1);
     }
-    this.scrollToReference(this.secondBatchHalf!)
+    this.scrollToReference(this.secondBatchHalf!);
   }
 }
